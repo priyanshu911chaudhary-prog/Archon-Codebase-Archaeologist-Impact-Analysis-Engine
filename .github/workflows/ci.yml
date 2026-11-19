@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel stale runs when pushing new commits to the same PR branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege default; jobs elevate only what they need
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality (Format, Lint, Typecheck, Test, Build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://archon:ci_dummy_pass@127.0.0.1:5432/archon_test
+      REDIS_URL: redis://127.0.0.1:6379
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js from .nvmrc with npm cache
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies (clean lockfile)
+        run: npm ci
+
+      - name: Check formatting (Prettier + LF)
+        run: npm run format:check
+
+      - name: Lint (ESLint strict, 0 warnings)
+        run: npm run lint
+
+      - name: Typecheck (TypeScript project references)
+        run: npm run typecheck
+
+      - name: Run unit tests (Vitest)
+        run: npm test
+
+      - name: Verify production build
+        run: npm run build
+
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js from .nvmrc
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Audit lockfile for high/critical vulnerabilities
+        run: npm audit --audit-level=high
+
+  secret-scan:
+    name: Secret Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout full history for commit-range scanning
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Scan commits for leaked secrets
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

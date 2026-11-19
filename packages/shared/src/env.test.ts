@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -124,7 +124,11 @@ describe('parseEnv', () => {
 describe('findRepoRoot and loadEnv', () => {
   it('resolves the monorepo root regardless of current working directory', () => {
     const repoRoot = findRepoRoot();
-    expect(path.basename(repoRoot).toLowerCase()).toBe('archon');
+    const pkg: unknown = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+
+    expect(pkg).toHaveProperty('name', 'archon');
+    expect(pkg).toHaveProperty('workspaces');
+    expect(Array.isArray((pkg as { workspaces: unknown }).workspaces)).toBe(true);
   });
 
   it('loads variables from an explicit .env file path via dotenv', () => {
