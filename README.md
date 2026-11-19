@@ -18,10 +18,14 @@ Archon strictly separates **deterministic structural truth** (AST-extracted `IMP
 - npm 11+
 - Docker Desktop (Linux containers / WSL2 backend on Windows)
 
-## Quick Start
+## Quick Start (Windows PowerShell)
 
 ```powershell
+Copy-Item .env.example .env
 npm install
+npm run docker:up
+npm run format:check
+npm run lint
 npm run typecheck
 npm test
 ```
